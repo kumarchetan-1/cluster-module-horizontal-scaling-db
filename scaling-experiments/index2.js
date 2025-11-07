@@ -1,40 +1,39 @@
-import cluster from "cluster";
-import os from "os";
+import cluster from "cluster"
+import os from "os"
 
-const numCPUs = os.cpus().length;
-const totalIterations = 1e8;
-const chunkSize = Math.floor(totalIterations / numCPUs);
+const noOfCPUS = os.cpus.length;
+const totStrength = 10e9;
+const chunkSize = totStrength/chunkSize;
 
 if (cluster.isPrimary) {
-  console.time("Calculation Time");
-  let completed = 0;
-  let totalSum = 0;
+    console.time("completed time")
+    const cpuCount = 0;
+    const sumOfNums = 0;
 
-  for (let i = 0; i < numCPUs; i++) {
-    const start = i * chunkSize;
-    const end = (i === numCPUs - 1) ? totalIterations : start + chunkSize;
+    for (let i = 0; i < noOfCPUS; i++) {
+        const start = i*chunkSize;
+        const end = i<(noOfCPUS-1)? (i+1)*chunkSize : totStrength
 
-    const worker = cluster.fork();
-    worker.send({ start, end });
+        const worker = cluster.fork()
+        worker.send({start, end})
 
-    worker.on("message", (sum) => {
-      totalSum += sum;
-      if (++completed === numCPUs) {
-        console.timeEnd("Calculation Time");
-        console.log("Final Sum:", totalSum);
-        for (const id in cluster.workers) {
-          cluster.workers[id].kill();
-        }
-      }
-    });
-  }
-
-} else {
-  process.on("message", ({ start, end }) => {
-    let sum = 0;
-    for (let i = start; i < end; i++) {
-      sum += i;
+        Worker.on("message", (sum)=>{
+          sumOfNums += sum
+          if (++cpuCount === noOfCPUS) {
+            console.timeEnd("completed time")
+            console.log("Sum of numbers: ", sumOfNums);
+            for( const id in cluster.workers ){
+                cluster.workers[id].kill()
+            }
+          }
+        })
     }
-    process.send(sum);
-  });
+} else{
+    process.on("message", ({start, end})=>{
+        const sum =0;
+        for(const i = start; i < end; i++){
+            sum += i;
+        }
+        process.send(sum)
+    })
 }
