@@ -1,43 +1,40 @@
 import cluster from "cluster";
 import os from "os";
-import { Worker } from "worker_threads";
+
+const numCPUs = os.cpus().length;
+const totalIterations = 1e8;
+const chunkSize = Math.floor(totalIterations / numCPUs);
 
 if (cluster.isPrimary) {
-    console.log("I am primary");
-    cluster.fork();
+  console.time("Calculation Time");
+  let completed = 0;
+  let totalSum = 0;
+
+  for (let i = 0; i < numCPUs; i++) {
+    const start = i * chunkSize;
+    const end = (i === numCPUs - 1) ? totalIterations : start + chunkSize;
+
+    const worker = cluster.fork();
+    worker.send({ start, end });
+
+    worker.on("message", (sum) => {
+      totalSum += sum;
+      if (++completed === numCPUs) {
+        console.timeEnd("Calculation Time");
+        console.log("Final Sum:", totalSum);
+        for (const id in cluster.workers) {
+          cluster.workers[id].kill();
+        }
+      }
+    });
+  }
+
 } else {
-    console.log("I am secondary");
-
-    const numCPUs = os.cpus().length;
-    const totalIterations = 1e8;
-    const chunkSize = Math.floor(totalIterations / numCPUs);
-    let completed = 0;
-    let totalSum = 0;
-
-    console.time("Calculation Time");
-
-    for (let i = 0; i < numCPUs; i++) {
-        const start = i * chunkSize;
-        const end = (i === numCPUs - 1) ? totalIterations : start + chunkSize;
-
-        const worker = new Worker(`
-            const { parentPort, workerData } = require('worker_threads');
-            let partialSum = 0;
-            for (let i = workerData.start; i < workerData.end; i++) {
-                partialSum += i;
-            }
-            parentPort.postMessage(partialSum);
-        `, { eval: true, workerData: { start, end } });
-
-        worker.on("message", (partialSum) => {
-            totalSum += partialSum;
-            completed++;
-            if (completed === numCPUs) {
-                console.timeEnd("Calculation Time");
-                console.log("Final Sum:", totalSum);
-            }
-        });
-
-        worker.on("error", (err) => console.error("Worker error:", err));
+  process.on("message", ({ start, end }) => {
+    let sum = 0;
+    for (let i = start; i < end; i++) {
+      sum += i;
     }
+    process.send(sum);
+  });
 }
